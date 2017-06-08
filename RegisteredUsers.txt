@@ -1,0 +1,8 @@
+test:TEST
+burp:BURP
+hades:HADES
+dippy:DippY
+blippy:Blippy
+finn:Finn
+dippydoo:Dippy2
+wibble:Wibble
