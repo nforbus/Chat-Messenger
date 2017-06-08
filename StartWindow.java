@@ -32,7 +32,6 @@ public class StartWindow implements ActionListener {
 	//executes the window
 	public boolean Launch() {
 		
-		//this.AddFrame(myWindow, windowName);
 		AddFrame(windowName);
 		myWindow.revalidate();
 		myWindow.setVisible(true);
@@ -47,7 +46,6 @@ public class StartWindow implements ActionListener {
 		}
 		
 		return successfulLogin;
-		
 	}
 	
 	//Creates a JFrame object to serve as the base window
@@ -148,20 +146,20 @@ public class StartWindow implements ActionListener {
 			write.flush();
 			serverResponse = read.readLine();
 			
+			if(serverResponse.compareTo("Allowed") != 0) {
+				JOptionPane.showMessageDialog(null, "Incorrect login information", "Error", JOptionPane.ERROR_MESSAGE);
+				successfulLogin = false;
+			}
+			else {
+				System.out.println("login success!");
+				username = usernameInfo.toLowerCase(); //Stores the username for later
+				System.out.println("username is: " + username);
+				successfulLogin = true;
+			}
+			
 		}catch(Exception e){
 			System.out.println("Failure to connect");
 		}
-		
-		if(serverResponse.compareTo("Allowed") != 0) {
-			JOptionPane.showMessageDialog(null, "Incorrect login information", "Error", JOptionPane.ERROR_MESSAGE);
-			successfulLogin = false;
-		}
-		else {
-			System.out.println("login success!");
-			username = usernameInfo; //Stores the username for later
-			successfulLogin = true;
-		}
-
 	}
 	
 	public void CreateUser(String usernameInfo, String passwordInfo, String ipInfo) {

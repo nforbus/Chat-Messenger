@@ -5,7 +5,7 @@ import java.util.*;
 
 import javax.swing.*;
 
-public class ChatWindow implements ActionListener {	
+public class ChatWindow implements ActionListener, MouseListener {	
 	
 	JFrame myWindow = null;
 	JTextArea chatLog = null;
@@ -15,7 +15,7 @@ public class ChatWindow implements ActionListener {
 	PrintWriter write = null;
 		
 	public ChatWindow(String windowName, String usernameToAdd, PrintWriter myWriter) {
-		username = usernameToAdd;
+		username = usernameToAdd.toLowerCase();
 		write = myWriter;
 		AddFrame(windowName);
 		myWindow.revalidate();
@@ -27,7 +27,6 @@ public class ChatWindow implements ActionListener {
 		myWindow = new JFrame(windowName);
 		myWindow.setMinimumSize(new Dimension(800,500));
 		myWindow.setLocation(0,0);
-		//myWindow.setVisible(true);
 		myWindow.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent windowEvent){
 				if(write != null) {
@@ -60,10 +59,20 @@ public class ChatWindow implements ActionListener {
 				if(pressed.getKeyCode() == KeyEvent.VK_ENTER)
 				{
 					pressed.consume();
-					String message = username + ": " +  chatBar.getText();
-					write.println(message);
-					write.flush();
-					chatBar.setText(null);
+					String message = chatBar.getText();
+					
+					if(message.startsWith("@")){
+						String directMessage = new String(message + ":" + username);
+						write.println(directMessage);
+						write.flush();
+						chatBar.setText(null);
+					}
+					else{
+						String generalMessage = new String(username + ": " + message);
+						write.println(generalMessage);
+						write.flush();
+						chatBar.setText(null);
+					}
 				}
 			}
 	
@@ -82,10 +91,21 @@ public class ChatWindow implements ActionListener {
 		enterButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e)
 			{
-				String message = username + ": " + chatBar.getText();
-				write.println(message);
-				write.flush();
-				chatBar.setText(null);
+
+				String message = chatBar.getText();
+				
+				if(message.startsWith("@")){
+					String directMessage = new String(message + ":" + username);
+					write.println(directMessage);
+					write.flush();
+					chatBar.setText(null);
+				}
+				else{
+					String generalMessage = new String(username + ": " + message);
+					write.println(generalMessage);
+					write.flush();
+					chatBar.setText(null);
+				}
 			}
 		});
 		enterButton.setSize(90,20);
@@ -130,6 +150,7 @@ public class ChatWindow implements ActionListener {
 		//Creates the middle panel which includes the text area of the chat room, as well as the user list
 		JPanel middlePanel = new JPanel();
 		middlePanel.setVisible(true);
+		//middlePanel.addMouseListener(this);
 		
 		//Creates the text area where messages will be displayed
 		chatLog = new JTextArea(25, 54);
@@ -143,6 +164,7 @@ public class ChatWindow implements ActionListener {
 		userList.setVisible(true);
 		userList.setEditable(false);
 		JScrollPane userListPane = new JScrollPane(userList);
+		//userListPane.addMouseListener(this);
 		middlePanel.add(userListPane);
 		
 		toAddTo.getContentPane().add(middlePanel, BorderLayout.CENTER); //adds middlePanel to the center position of the frame
@@ -181,8 +203,27 @@ public class ChatWindow implements ActionListener {
 		userList.revalidate();
 	}
 
-	@Override
-	public void actionPerformed(ActionEvent arg0) {
-		//Unused
+	void OpenDirectPrompt() {
+		System.out.println("TEST!");
 	}
+	
+	@Override
+	public void actionPerformed(ActionEvent arg0) {}
+
+	@Override
+	public void mouseClicked(MouseEvent arg0) {
+		OpenDirectPrompt();
+	}
+
+	@Override
+	public void mouseEntered(MouseEvent arg0) {}
+
+	@Override
+	public void mouseExited(MouseEvent arg0) {}
+
+	@Override
+	public void mousePressed(MouseEvent arg0) {}
+
+	@Override
+	public void mouseReleased(MouseEvent arg0) {}
 }

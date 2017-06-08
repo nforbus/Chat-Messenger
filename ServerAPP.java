@@ -1,24 +1,50 @@
+import java.awt.Dimension;
+import java.awt.event.*;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import javax.swing.*;
 
 public class ServerAPP {
 
 	ArrayList<ClientThread> clientConnections;
 	ServerSocket serverSocket;
-	ArrayList<String> listOfUsers;
+	Socket clientSocket;
 	boolean serverOn = true;
 	
 	public ServerAPP() {
 		
+		String serverString = null;
+		
 		try{
 			InetAddress serverIP = InetAddress.getLocalHost();
+			serverString = serverIP.getHostAddress();
 			System.out.println(serverIP.getHostAddress());
 		}catch(Exception e){
 			//ToDo
 		}
 		
 		clientConnections = new ArrayList<ClientThread>();
+		
+		//Termination button for the server
+		JFrame keepOn = new JFrame();
+		keepOn.setVisible(true);
+		keepOn.setMinimumSize(new Dimension(500,100));
+		keepOn.addWindowListener(new WindowAdapter() {
+			public void actionPerformed(ActionEvent e)
+			{
+				EndConnections();
+			}
+		});
+		JButton killServer = new JButton("PRESS TO TERMINATE CONNECTIONS TO: " + serverString);
+		killServer.setVisible(true);
+		killServer.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e)
+			{
+				EndConnections();
+			}
+		});
+		keepOn.add(killServer);
 		
 		//Establish the servers initial connection
 		try{
@@ -29,13 +55,13 @@ public class ServerAPP {
 		}
 		
 		//Accept incoming connections while serverOn is turned on
-		while(serverOn){
+		while(serverOn)	{				
 			try{
-				Socket clientSocket = serverSocket.accept();
-				//clientConnections.add(new ClientThread(clientSocket));
+				clientSocket = serverSocket.accept();
 				ClientThread clientThread = new ClientThread(clientSocket);
 				clientThread.start();
 				clientConnections.add(clientThread);
+				
 			}catch(Exception e){
 				System.out.println("Couldn't accept connection.");
 			}
@@ -49,6 +75,26 @@ public class ServerAPP {
 			System.out.println("Server experienced error when shutting off.");
 		}
 	}
+	
+	public void EndConnections() {
+		
+		serverOn = false;
+		
+		//Ping all connected clients, tell them to gracefully disconnect
+		for(int i = 0; i < clientConnections.size(); ++i) {
+			clientConnections.get(i).GracefulDisconnect();
+		}
+		
+		try {
+			serverSocket.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		System.exit(0);
+	}
+	
 	
 	public static void main(String [] args) {
 		new ServerAPP();
@@ -91,7 +137,7 @@ public class ServerAPP {
 						if(RegisterUser(userInput[1], userInput[2])) {
 							write.println("Allowed");
 							write.flush();
-							username = userInput[1];
+							username = userInput[1].toLowerCase();
 							AnnounceStatus("Allowed");
 							BuildUserList();
 						}
@@ -109,7 +155,7 @@ public class ServerAPP {
 						if(CheckUser(userInput[0], userInput[1])) {
 				        	write.println("Allowed");
 				            write.flush();
-				        	username = userInput[0];
+				        	username = userInput[0].toLowerCase();
 				        	AnnounceStatus("Allowed");
 				        	BuildUserList();
 				        }
@@ -137,7 +183,13 @@ public class ServerAPP {
 			        		clientConnections.remove(this);
 			        	}
 			        	else{
-			        		Broadcast(clientResponse);
+			        		
+			        		if(clientResponse.startsWith("@")) {
+			        			DirectMessage(clientResponse);
+			        		}
+			        		else{
+				        		Broadcast(clientResponse);
+			        		}
 			        	}
 			        }
 				}
@@ -147,12 +199,54 @@ public class ServerAPP {
 			}
 		}
 		
+		public void GracefulDisconnect() {
+			
+			write.println("GracefulDisconnection");
+			write.flush();
+			
+		}
+		
 		public void Broadcast(String toSend) {
 			for(int i = 0; i < clientConnections.size(); ++i) {
 				ClientThread myThread = clientConnections.get(i);
 				myThread.write.println(toSend);
 				myThread.write.flush();
 			}
+		}
+		
+		public void DirectMessage(String toSend) {
+			
+			ArrayList<String> dissectedMessage = new ArrayList<String>(Arrays.asList(toSend.split(":")));
+			String toUser = new String(dissectedMessage.get(0)).substring(1);
+			String toMessage = new String(dissectedMessage.get(1));
+			String fromUser = new String(dissectedMessage.get(2));
+			
+			String newMessage = new String(fromUser + " says to " + toUser + " : " +  toMessage);
+			
+			toUser = toUser.toLowerCase();
+			fromUser = fromUser.toLowerCase();
+			
+			if(VerifyUserExists(toUser)) {
+				write.println(newMessage); //Send the message back to yourself since you should also see it in log
+				write.flush();
+				
+				//Somehow figure out which client has toUser connected..
+				for(int i = 0; i < clientConnections.size(); ++i) {
+					
+					ClientThread myThread = clientConnections.get(i);
+					
+					if(myThread.username.equals(toUser)) {
+						myThread.write.println(newMessage);
+						myThread.write.flush();
+					}
+				}
+			}
+			
+			else{
+				write.println("That user doesn't exist.");
+				write.flush();
+			}
+			
 		}
 		
 		public void AnnounceStatus(String statusUpdate) {
@@ -173,6 +267,32 @@ public class ServerAPP {
 				myThread.write.println(statusMessage);
 				myThread.write.flush();
 			}
+		}
+		
+		public boolean VerifyUserExists(String toVerify) {
+			
+			Scanner file_in = null;
+			String myUser = null;
+			
+			try{
+				file_in = new Scanner(new File("RegisteredUsers.txt"));
+				
+				while(file_in.hasNextLine()) {
+					myUser = file_in.next();
+					String [] userInput = myUser.split(":");
+					if(userInput[0].equals(toVerify)){
+						file_in.close();
+						return true;
+					}
+				}
+				
+				file_in.close();
+				return false;
+			}catch(Exception e){
+				System.out.println("Could not verify if user existed or not.");
+			}
+			
+			return false;
 		}
 		
 		public boolean CheckUser(String usernameInfo, String passwordInfo) {
@@ -282,186 +402,4 @@ public class ServerAPP {
 			}
 		}
 	}	
-}	
-		
-/*		public void UserDisconnect(String username){
-			//chatGUI.DisplayMessage(username + " has disconnected");
-			
-			try {
-				write.close();
-				client = null;
-				
-			}catch(IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}*/
-
-	
-	
-	/*//ChatWindow chatGUI;
-	//ServerSocket serverSocket;
-	Socket client;
-	BufferedReader read;
-	PrintWriter write;
-	int numConnected = 0;
-	int maxNumUsers = 10;
-	String [] userInput;
-	
-
-	
-	public void Start(){
-		
-		//Create the GUI window
-		chatGUI = new ChatWindow("Chat Messenger (Server)", "SERVER_ADMIN");
-		
-		try{
-			serverSocket = new ServerSocket(connection.getSocket());
-			System.out.println("Connection active on socket " + connection.getSocket());
-		}catch(IOException ioError){
-			System.out.println("Couldn't connect to " + connection.getSocket());
-			System.exit(-1);
-		}
-
-		while(serverOn) {
-			try{
-				client = serverSocket.accept();
-			}
-		}
-
-		System.out.println("Awaiting incoming connections.. ");
-		
-		try{
-			AcceptConnection();
-		}catch(Exception e){
-			System.out.println("SERVER ISNT LISTENING");
-		}
-	}
-	
-	public void AcceptConnection() throws Exception {		
-		while(true) {
-			try{
-				
-				//Reopen a socket if it was already closed
-				if(client == null) {
-					client = serverSocket.accept();
-				}
-				
-		        //open read/write streams
-		        read = new BufferedReader(new InputStreamReader(client.getInputStream()));
-		        write = new PrintWriter(new OutputStreamWriter(client.getOutputStream()));
-		        chatGUI.AddWriter(write); //sends writer info to the GUI
-				
-				if(numConnected < maxNumUsers) {	
-					if(client == null)
-					{
-						System.out.println("Client is null");
-						break;
-					}
-					
-					if(write.checkError()) {
-						UserDisconnect(userInput[0]);
-					}
-					
-					System.out.println("Trying to establish a connection with the client..");
-					
-					String userInfo = read.readLine();
-					userInput = userInfo.split(":");
-
-			        if(userInput[0].equals(connection.getUsername()) && userInput[1].equals(connection.getPassword())) {
-			            //User has connected
-			        	chatGUI.DisplayMessage(userInput[0] + " has connected");
-			        	write.println("Allowed");
-			            write.flush();
-			            ++numConnected;
-			            System.out.println("There are now " + numConnected + " users connected.");
-			        }
-			        
-			        //user login failed, present error.
-			        else {
-			            write.println("Login Failed");
-			            write.flush();
-			            client.close();
-			        }
-				}
-				
-				else {
-					write = new PrintWriter(new OutputStreamWriter(client.getOutputStream()));
-					write.println("Server is full, try again later.");
-					write.flush();
-					client.close();
-				}
-				
-				String clientResponse = null;
-				
-				while(!write.checkError()) { //check error returns true if there's an error writing to it
-					
-						clientResponse = read.readLine();
-						//System.out.println("message from client: " + clientResponse);
-						
-						if(clientResponse.compareTo("CloseUserConnection") == 0) {
-							UserDisconnect(userInput[0]);
-						}
-						else {
-							//System.out.println("Client has something to say.");
-							chatGUI.DisplayMessage(clientResponse);
-							clientResponse = null;
-						}
-				}
-
-			}catch(Exception e){
-				//ToDO
-			}
-		}
-	}
-	
-	public void SendMessageToAll(String messageToSend){
-		write.println(messageToSend);
-		write.flush();
-		messageToSend = null;
-	}
-	
-	public void SendMessage(String messageToSend) {
-		
-		try{
-			write.println(messageToSend);
-			write.flush();
-			
-		}catch(Exception e){
-			//
-		}
-	}
-	
-	public void UserDisconnect(String username) {
-		
-		chatGUI.DisplayMessage(username + " has disconnected");
-		
-		try {
-			client.close();
-			client = null;
-			
-		}catch(IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-	}
-	
-	public static void main(String[] args) {
-		
-		ServerAPP serverApp = new ServerAPP(); //Instantiates a ServerAPP
-
-		try{
-			serverApp.Start(); //launch GUI and obtain server connection.
-			
-		}catch(Exception e){
-			//ToDO
-		}
-	}
-
-	@Override
-	public void run() {
-		// TODO Auto-generated method stub
-		
-	}
-}*/
+}

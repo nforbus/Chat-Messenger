@@ -13,7 +13,9 @@ public class ClientAPP {
 	public void Start() {
 		
 		connectionOn = AttemptConnection();
-
+		
+		System.out.println("Username after attempt connection is: " + username);
+		
 		//Add GUI Window
 		chatGUI = new ChatWindow("Chat Messenger (Client)", username, write);
 		
@@ -29,13 +31,18 @@ public class ClientAPP {
 						serverResponse = null;
 					}
 					
+					//If the client is being pinged with a disconnect message
+					else if(serverResponse.startsWith("GracefulDisconnection")) {
+						chatGUI.CloseClient();
+						System.exit(0);
+					}
+					
 					//If the client is being sent anything else
 					else{
 						LogResponse(serverResponse);
 						chatGUI.DisplayMessage(serverResponse);
 						serverResponse = null;
 					}
-
 				}
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
@@ -52,12 +59,13 @@ public class ClientAPP {
 		connectionSuccess = startGUI.Launch();
 		
 		if(connectionSuccess) {	
-			username = startGUI.username;
+			username = startGUI.username.toLowerCase();
 			read = startGUI.read;
 			write = startGUI.write;
 			socket = startGUI.socket;
 			startGUI.Destroy();
 			startGUI = null;
+			System.out.println("username 1AA is: " + username);
 			return connectionSuccess;
 		}
 		
